@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>คลังสินค้า — STOCK MANIFEST</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root{
+  --bg:#17140F;
+  --panel:#211C15;
+  --panel2:#2A241B;
+  --line:#463C2C;
+  --paper:#EDE6D6;
+  --paper-dim:#B8AD96;
+  --amber:#F2B705;
+  --amber-dim:#8C6C0A;
+  --orange:#E8590C;
+  --green:#3F8F6B;
+  --red:#C1432A;
+  --radius:2px;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,0) 120px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0 1px, transparent 1px 24px),
+    var(--bg);
+  color:var(--paper);
+  font-family:'Noto Sans Thai','JetBrains Mono',monospace;
+  min-height:100vh;
+  padding-bottom:60px;
+}
+.mono{font-family:'JetBrains Mono',monospace;}
+.disp{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.04em;}
+
+header.board{
+  background:
+    repeating-linear-gradient(135deg, rgba(0,0,0,.35) 0 10px, rgba(0,0,0,.15) 10px 20px),
+    linear-gradient(180deg,#2A241B,#1D1911);
+  border-bottom:3px solid var(--amber);
+  padding:22px 20px 16px;
+  position:relative;
+}
+header.board::before{
+  content:"";
+  position:absolute; inset:6px;
+  border:1px dashed rgba(237,230,214,.18);
+  pointer-events:none;
+}
+.rivet{position:absolute; width:7px; height:7px; border-radius:50%; background:radial-gradient(circle at 35% 35%,#5b5240,#0e0c08); box-shadow:0 0 0 1px rgba(0,0,0,.4);}
+.rivet.tl{top:10px;left:10px;} .rivet.tr{top:10px;right:10px;}
+.rivet.bl{bottom:10px;left:10px;} .rivet.br{bottom:10px;right:10px;}
+.board-top{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;}
+.tag{
+  font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.12em;
+  color:var(--amber); border:1px solid var(--amber-dim); padding:2px 8px; border-radius:2px;
+  background:rgba(242,183,5,.06);
+}
+h1.disp{font-size:clamp(24px,5vw,36px); color:var(--paper); line-height:1.05; margin-top:8px;}
+h1.disp span{color:var(--amber);}
+.sub{color:var(--paper-dim); font-size:13px; margin-top:4px;}
+.clock{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--paper-dim); text-align:right;}
+.connbadge{font-family:'JetBrains Mono',monospace; font-size:10px; margin-top:4px; padding:2px 6px; border-radius:2px; display:inline-block;}
+.connbadge.ok{color:var(--green); border:1px solid var(--green); background:rgba(63,143,107,.08);}
+.connbadge.bad{color:var(--red); border:1px solid var(--red); background:rgba(193,67,42,.08);}
+
+main{max-width:1180px; margin:0 auto; padding:18px 16px;}
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:18px;}
+.stat{
+  background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--amber);
+  padding:12px 14px; position:relative;
+}
+.stat.alert{border-left-color:var(--orange);}
+.stat .num{font-family:'Oswald',sans-serif; font-size:28px; font-weight:600; color:var(--paper);}
+.stat.alert .num{color:var(--orange);}
+.stat .lbl{font-size:11px; color:var(--paper-dim); letter-spacing:.06em; text-transform:uppercase; margin-top:2px;}
+
+.tabs{display:flex; gap:2px; margin-bottom:14px; border-bottom:1px solid var(--line); flex-wrap:wrap;}
+.tab{
+  font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.05em; font-size:13px;
+  padding:9px 16px; color:var(--paper-dim); cursor:pointer; border-bottom:2px solid transparent;
+  background:none; border-top:none; border-left:none; border-right:none;
+}
+.tab.active{color:var(--amber); border-bottom-color:var(--amber);}
+.tab:hover{color:var(--paper);}
+
+.panel{background:var(--panel); border:1px solid var(--line); padding:16px; display:none;}
+.panel.active{display:block;}
+
+.row{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px;}
+input,select,textarea{
+  background:var(--bg); border:1px solid var(--line); color:var(--paper);
+  padding:9px 10px; font-family:'Noto Sans Thai',sans-serif; font-size:14px; border-radius:2px;
+}
+input:focus,select:focus,textarea:focus{outline:none; border-color:var(--amber);}
+.btn{
+  font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.05em; font-size:13px;
+  background:var(--amber); color:#1a1710; border:none; padding:10px 16px; cursor:pointer; border-radius:2px;
+  font-weight:600;
+}
+.btn:hover{background:#ffcb2e;}
+.btn.ghost{background:transparent; border:1px solid var(--line); color:var(--paper);}
+.btn.ghost:hover{border-color:var(--paper-dim);}
+.btn.danger{background:var(--red); color:var(--paper);}
+.btn.green{background:var(--green); color:#0c1b15;}
+.btn.small{padding:6px 10px; font-size:11px;}
+.btn:disabled{opacity:.5; cursor:not-allowed;}
+
+.grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px;}
+.bincard{
+  background:var(--panel2); border:1px solid var(--line); padding:12px; position:relative;
+  clip-path:polygon(0 0,100% 0,100% 100%,10px 100%,0 calc(100% - 10px));
+}
+.bincard.low{border-color:var(--orange); box-shadow:inset 0 0 0 1px rgba(232,89,12,.3);}
+.bincard .sku{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--paper-dim);}
+.bincard .name{font-family:'Oswald',sans-serif; font-size:16px; margin:4px 0 6px; color:var(--paper);}
+.bincard .qtyline{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;}
+.bincard .qty{font-family:'Oswald',sans-serif; font-size:22px; color:var(--amber);}
+.bincard.low .qty{color:var(--orange);}
+.bincard .unit{font-size:11px; color:var(--paper-dim);}
+.bincard .min{font-size:11px; color:var(--paper-dim);}
+.bincard .actions{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
+.badge-low{position:absolute; top:8px; right:8px; font-size:10px; background:var(--orange); color:#1a1710; padding:2px 6px; border-radius:2px; font-family:'JetBrains Mono',monospace;}
+
+table{width:100%; border-collapse:collapse; font-size:13px;}
+th{text-align:left; font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.04em; font-size:11px; color:var(--paper-dim); padding:8px 8px; border-bottom:1px solid var(--line);}
+td{padding:8px; border-bottom:1px solid rgba(70,60,44,.5);}
+tr:hover td{background:rgba(242,183,5,.04);}
+.pill{padding:2px 8px; border-radius:2px; font-size:11px; font-family:'JetBrains Mono',monospace;}
+.pill.in{background:rgba(63,143,107,.15); color:var(--green); border:1px solid var(--green);}
+.pill.out{background:rgba(193,67,42,.15); color:var(--red); border:1px solid var(--red);}
+
+.overlay{position:fixed; inset:0; background:rgba(10,8,5,.75); display:none; align-items:center; justify-content:center; z-index:50; padding:16px;}
+.overlay.active{display:flex;}
+.modal{background:var(--panel); border:1px solid var(--amber-dim); max-width:440px; width:100%; padding:20px; max-height:88vh; overflow:auto;}
+.modal h2{font-family:'Oswald',sans-serif; text-transform:uppercase; color:var(--amber); font-size:18px; margin-bottom:14px;}
+.field{margin-bottom:12px; display:flex; flex-direction:column; gap:4px;}
+.field label{font-size:11px; color:var(--paper-dim); text-transform:uppercase; letter-spacing:.05em;}
+.field input,.field select,.field textarea{width:100%;}
+.modal .actions{display:flex; gap:8px; justify-content:flex-end; margin-top:16px;}
+
+.qr-box{display:flex; flex-direction:column; align-items:center; gap:8px; padding:10px; background:#fff; border-radius:2px;}
+.empty{color:var(--paper-dim); text-align:center; padding:40px 10px; font-size:13px;}
+.hint{font-size:12px; color:var(--paper-dim); line-height:1.6; margin-top:6px;}
+.hint b{color:var(--amber);}
+::-webkit-scrollbar{width:8px; height:8px;} ::-webkit-scrollbar-thumb{background:var(--line);}
+@media(max-width:560px){ .board-top{flex-direction:column;} .clock{text-align:left;} }
+</style>
+</head>
+<body>
+
+<header class="board">
+  <div class="rivet tl"></div><div class="rivet tr"></div><div class="rivet bl"></div><div class="rivet br"></div>
+  <div class="board-top">
+    <div>
+      <span class="tag">STOCK MANIFEST // ระบบจัดการสต็อกสินค้า</span>
+      <h1 class="disp">คลัง<span>สต็อก</span> คอนโทรล</h1>
+      <div class="sub">รับเข้า · เบิกออก · แจ้งเตือนของใกล้หมด</div>
+      <div id="connBadge" class="connbadge">กำลังเชื่อมต่อ Firebase...</div>
+    </div>
+    <div class="clock" id="clock">—</div>
+  </div>
+</header>
+
+<main>
+  <div class="stats" id="stats"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="products">รายการสินค้า</button>
+    <button class="tab" data-tab="move">รับเข้า / เบิกออก</button>
+    <button class="tab" data-tab="ledger">ประวัติรายการ</button>
+    <button class="tab" data-tab="settings">ตั้งค่า &amp; แจ้งเตือน</button>
+  </div>
+
+  <div class="panel active" id="panel-products">
+    <div class="row">
+      <input id="searchBox" placeholder="ค้นหา รหัส/ชื่อสินค้า..." style="flex:1; min-width:180px;">
+      <select id="filterLow">
+        <option value="all">ทั้งหมด</option>
+        <option value="low">ใกล้หมดเท่านั้น</option>
+      </select>
+      <button class="btn" onclick="openProductModal()">+ เพิ่มสินค้า</button>
+    </div>
+    <div class="grid" id="productGrid"></div>
+  </div>
+
+  <div class="panel" id="panel-move">
+    <div class="row" style="max-width:480px; flex-direction:column; align-items:stretch;">
+      <div class="field">
+        <label>เลือกสินค้า</label>
+        <select id="moveProduct"></select>
+      </div>
+      <div class="row">
+        <button class="btn green" style="flex:1" onclick="setMoveType('in')" id="btnIn">รับเข้า (IN)</button>
+        <button class="btn danger" style="flex:1" onclick="setMoveType('out')" id="btnOut">เบิกออก (OUT)</button>
+      </div>
+      <div class="field">
+        <label>จำนวน</label>
+        <input type="number" id="moveQty" min="1" value="1">
+      </div>
+      <div class="field">
+        <label>หมายเหตุ / อ้างอิง (ใบสั่ง, ผู้เบิก ฯลฯ)</label>
+        <input id="moveNote" placeholder="เช่น เบิกซ่อม AHU ชั้น 5 - ช่างสมชาย">
+      </div>
+      <button class="btn" style="align-self:flex-start" onclick="submitMove()" id="submitMoveBtn">บันทึกรายการ</button>
+      <div class="hint" id="moveHint"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-ledger">
+    <div class="row">
+      <button class="btn ghost small" onclick="exportCSV()">ดาวน์โหลด CSV</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>วันที่</th><th>สินค้า</th><th>ประเภท</th><th>จำนวน</th><th>คงเหลือ</th><th>หมายเหตุ</th></tr></thead>
+        <tbody id="ledgerBody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="ledgerEmpty" style="display:none;">ยังไม่มีรายการเคลื่อนไหว</div>
+  </div>
+
+  <div class="panel" id="panel-settings">
+    <div style="max-width:520px;">
+      <div class="field">
+        <label>เกณฑ์สต็อกขั้นต่ำเริ่มต้น (ใช้ตอนเพิ่มสินค้าใหม่)</label>
+        <input type="number" id="defaultMin" min="0">
+      </div>
+      <div class="field">
+        <label>Webhook แจ้งเตือนของใกล้หมด (n8n / Google Apps Script ที่ต่อไป LINE)</label>
+        <input id="webhookUrl" placeholder="https://your-n8n-or-appscript-url/webhook">
+      </div>
+      <button class="btn" onclick="saveSettings()">บันทึกการตั้งค่า</button>
+      <button class="btn ghost" onclick="testWebhook()">ทดสอบส่งแจ้งเตือน</button>
+      <div class="hint">
+        <b>ข้อมูลตอนนี้ซิงค์ผ่าน Firebase (โปรเจกต์ stb-pm-system)</b> — เปิดหน้านี้จากเครื่อง/มือถือคนละเครื่องจะเห็นข้อมูลชุดเดียวกันแบบเรียลไทม์ เก็บใน Firestore collection <span class="mono">stock_products</span> และ <span class="mono">stock_tx</span> คู่กับ <span class="mono">eaf_pm_logs</span> ที่มีอยู่แล้ว
+      </div>
+      <div class="hint">
+        <b>เรื่อง LINE:</b> LINE Notify ปิดบริการไปแล้ว เว็บนี้จึงไม่เรียก LINE โดยตรง (ติด CORS ด้วย) แนะนำตั้ง webhook ที่ n8n/Apps Script เป็นตัวกลางรับ POST จากหน้านี้ แล้วยิงต่อเข้า LINE Official Account (Messaging API) เว็บนี้จะส่ง JSON <span class="mono">{sku,name,qty,min}</span> ทุกครั้งที่สต็อกต่ำกว่าขั้นต่ำ
+      </div>
+      <div class="hint">การตั้งค่านี้ (เกณฑ์ขั้นต่ำ/webhook) เก็บเฉพาะในเครื่องนี้เท่านั้น ไม่ซิงค์ข้ามอุปกรณ์</div>
+    </div>
+  </div>
+</main>
+
+<div class="overlay" id="productOverlay">
+  <div class="modal">
+    <h2 id="productModalTitle">เพิ่มสินค้า</h2>
+    <input type="hidden" id="pEditId">
+    <div class="field"><label>รหัสสินค้า (SKU)</label><input id="pSku"></div>
+    <div class="field"><label>ชื่อสินค้า</label><input id="pName"></div>
+    <div class="row" style="gap:8px;">
+      <div class="field" style="flex:1"><label>หมวดหมู่</label><input id="pCategory"></div>
+      <div class="field" style="flex:1"><label>หน่วยนับ</label><input id="pUnit" placeholder="ชิ้น/ม้วน/กล่อง"></div>
+    </div>
+    <div class="row" style="gap:8px;">
+      <div class="field" style="flex:1"><label>จำนวนคงเหลือ</label><input type="number" id="pQty" min="0"></div>
+      <div class="field" style="flex:1"><label>สต็อกขั้นต่ำ</label><input type="number" id="pMin" min="0"></div>
+    </div>
+    <div class="field"><label>ที่จัดเก็บ (ชั้น/ชั้นวาง)</label><input id="pLocation"></div>
+    <div class="actions">
+      <button class="btn ghost" onclick="closeProductModal()">ยกเลิก</button>
+      <button class="btn" onclick="saveProduct()" id="saveProductBtn">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="qrOverlay">
+  <div class="modal" style="max-width:300px; text-align:center;">
+    <h2 id="qrTitle">QR ป้ายสินค้า</h2>
+    <div class="qr-box"><div id="qrCanvas"></div></div>
+    <div class="hint">สแกนเพื่อดูรหัสสินค้า พิมพ์ป้ายนี้ติดชั้นวางได้</div>
+    <div class="actions" style="justify-content:center;">
+      <button class="btn ghost" onclick="closeQr()">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, doc, updateDoc, deleteDoc,
+  onSnapshot, query, orderBy, limit, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAkJq1tJ6k7px6RK_HjaVqTjI_spbcjoXo",
+  authDomain: "stb-pm-system.firebaseapp.com",
+  projectId: "stb-pm-system",
+  storageBucket: "stb-pm-system.firebasestorage.app",
+  messagingSenderId: "629248634578",
+  appId: "1:629248634578:web:cc22a69d575f8b2177470b"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const productsCol = collection(db, 'stock_products');
+const txCol = collection(db, 'stock_tx');
+
+const SET_KEY = 'stock_settings_v1';
+let settings = JSON.parse(localStorage.getItem(SET_KEY) || 'null') || {defaultMin:5, webhookUrl:''};
+let products = [];
+let tx = [];
+let currentMoveType = 'in';
+let seeded = false;
+
+function fmt(n){ return Number(n).toLocaleString('th-TH'); }
+function saveSettingsLocal(){ localStorage.setItem(SET_KEY, JSON.stringify(settings)); }
+
+// ---- Firestore realtime listeners ----
+const connBadge = document.getElementById('connBadge');
+onSnapshot(productsCol, (snap)=>{
+  products = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  connBadge.textContent = 'เชื่อมต่อ Firebase สำเร็จ (stb-pm-system)';
+  connBadge.className = 'connbadge ok';
+  renderAll();
+  if(document.getElementById('panel-move').classList.contains('active')) renderMoveSelect();
+}, (err)=>{
+  connBadge.textContent = 'เชื่อมต่อ Firebase ไม่สำเร็จ: '+err.message;
+  connBadge.className = 'connbadge bad';
+});
+
+const txQuery = query(txCol, orderBy('date','desc'), limit(300));
+onSnapshot(txQuery, (snap)=>{
+  tx = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  renderStats();
+  renderLedger();
+}, (err)=>{ console.warn('tx listen error', err); });
+
+// ---- Tabs ----
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+    if(t.dataset.tab==='move') renderMoveSelect();
+    if(t.dataset.tab==='ledger') renderLedger();
+    if(t.dataset.tab==='settings') loadSettingsUI();
+  };
+});
+
+function renderStats(){
+  const totalSku = products.length;
+  const totalQty = products.reduce((a,p)=>a+Number(p.qty||0),0);
+  const low = products.filter(p=>Number(p.qty||0) <= Number(p.min||0));
+  const el = document.getElementById('stats');
+  el.innerHTML = `
+    <div class="stat"><div class="num">${totalSku}</div><div class="lbl">รายการสินค้า (SKU)</div></div>
+    <div class="stat"><div class="num">${fmt(totalQty)}</div><div class="lbl">จำนวนรวมทุกชิ้น</div></div>
+    <div class="stat ${low.length? 'alert':''}"><div class="num">${low.length}</div><div class="lbl">ใกล้หมด / ต้องสั่งเพิ่ม</div></div>
+    <div class="stat"><div class="num">${tx.length}</div><div class="lbl">รายการเคลื่อนไหวล่าสุด</div></div>
+  `;
+}
+
+function renderProducts(){
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  const lowOnly = document.getElementById('filterLow').value === 'low';
+  const grid = document.getElementById('productGrid');
+  if(products.length===0){
+    grid.innerHTML = '<div class="empty">ยังไม่มีสินค้าในระบบ กด "+ เพิ่มสินค้า" เพื่อเริ่มต้น</div>';
+    return;
+  }
+  let list = products.filter(p=>{
+    const isLow = Number(p.qty||0) <= Number(p.min||0);
+    if(lowOnly && !isLow) return false;
+    const sku=(p.sku||'').toLowerCase(), name=(p.name||'').toLowerCase();
+    if(q && !(sku.includes(q) || name.includes(q))) return false;
+    return true;
+  });
+  if(list.length===0){ grid.innerHTML = '<div class="empty">ไม่พบสินค้าตามเงื่อนไข</div>'; return; }
+  grid.innerHTML = list.map(p=>{
+    const isLow = Number(p.qty||0) <= Number(p.min||0);
+    return `
+    <div class="bincard ${isLow?'low':''}">
+      ${isLow?'<div class="badge-low">ใกล้หมด</div>':''}
+      <div class="sku">${p.sku||''} · ${p.category||'-'}</div>
+      <div class="name">${p.name||''}</div>
+      <div class="qtyline">
+        <span class="qty">${fmt(p.qty||0)} <span class="unit">${p.unit||''}</span></span>
+        <span class="min">ขั้นต่ำ ${fmt(p.min||0)}</span>
+      </div>
+      <div class="sub" style="font-size:11px;">${p.location||'ไม่ระบุที่เก็บ'}</div>
+      <div class="actions">
+        <button class="btn small ghost" onclick="openProductModal('${p.id}')">แก้ไข</button>
+        <button class="btn small ghost" onclick="showQr('${p.id}')">QR</button>
+        <button class="btn small danger" onclick="deleteProduct('${p.id}')">ลบ</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.openProductModal = function(id){
+  document.getElementById('pEditId').value = id||'';
+  if(id){
+    const p = products.find(x=>x.id===id);
+    document.getElementById('productModalTitle').textContent = 'แก้ไขสินค้า';
+    pSku.value=p.sku||''; pName.value=p.name||''; pCategory.value=p.category||''; pUnit.value=p.unit||'';
+    pQty.value=p.qty||0; pMin.value=p.min||0; pLocation.value=p.location||'';
+  } else {
+    document.getElementById('productModalTitle').textContent = 'เพิ่มสินค้า';
+    pSku.value=''; pName.value=''; pCategory.value=''; pUnit.value=''; pQty.value=0; pMin.value=settings.defaultMin; pLocation.value='';
+  }
+  document.getElementById('productOverlay').classList.add('active');
+}
+window.closeProductModal = function(){ document.getElementById('productOverlay').classList.remove('active'); }
+
+window.saveProduct = async function(){
+  const id = pEditId.value;
+  if(!pSku.value.trim() || !pName.value.trim()){ alert('กรุณากรอกรหัสและชื่อสินค้า'); return; }
+  const data = {sku:pSku.value.trim(), name:pName.value.trim(), category:pCategory.value.trim(), unit:pUnit.value.trim(), qty:Number(pQty.value)||0, min:Number(pMin.value)||0, location:pLocation.value.trim()};
+  const btn = document.getElementById('saveProductBtn'); btn.disabled = true;
+  try{
+    if(id){ await updateDoc(doc(db,'stock_products',id), data); }
+    else { await addDoc(productsCol, data); }
+    closeProductModal();
+  }catch(err){ alert('บันทึกไม่สำเร็จ: '+err.message); }
+  btn.disabled = false;
+}
+window.deleteProduct = async function(id){
+  if(!confirm('ยืนยันลบสินค้านี้? ประวัติรายการเก่าจะยังอยู่')) return;
+  try{ await deleteDoc(doc(db,'stock_products',id)); }
+  catch(err){ alert('ลบไม่สำเร็จ: '+err.message); }
+}
+
+window.showQr = function(id){
+  const p = products.find(x=>x.id===id);
+  document.getElementById('qrTitle').textContent = (p.sku||'')+' — '+(p.name||'');
+  document.getElementById('qrCanvas').innerHTML='';
+  new QRCode(document.getElementById('qrCanvas'), {text: p.sku||p.id, width:180, height:180});
+  document.getElementById('qrOverlay').classList.add('active');
+}
+window.closeQr = function(){ document.getElementById('qrOverlay').classList.remove('active'); }
+
+function renderMoveSelect(){
+  const sel = document.getElementById('moveProduct');
+  sel.innerHTML = products.map(p=>`<option value="${p.id}">${p.sku||''} — ${p.name||''} (คงเหลือ ${fmt(p.qty||0)} ${p.unit||''})</option>`).join('');
+  setMoveType(currentMoveType);
+}
+window.setMoveType = function(t){
+  currentMoveType = t;
+  document.getElementById('btnIn').style.opacity = t==='in'?1:.5;
+  document.getElementById('btnOut').style.opacity = t==='out'?1:.5;
+}
+window.submitMove = async function(){
+  const pid = document.getElementById('moveProduct').value;
+  const p = products.find(x=>x.id===pid);
+  if(!p){ alert('ยังไม่มีสินค้าในระบบ กรุณาเพิ่มสินค้าก่อน'); return; }
+  const qty = Number(document.getElementById('moveQty').value);
+  if(!qty || qty<=0){ alert('กรอกจำนวนให้ถูกต้อง'); return; }
+  if(currentMoveType==='out' && qty > Number(p.qty||0)){
+    if(!confirm('จำนวนเบิกมากกว่าคงเหลือ ('+p.qty+') ต้องการดำเนินการต่อหรือไม่?')) return;
+  }
+  const newQty = currentMoveType==='in' ? Number(p.qty||0)+qty : Number(p.qty||0)-qty;
+  const btn = document.getElementById('submitMoveBtn'); btn.disabled = true;
+  try{
+    await updateDoc(doc(db,'stock_products',p.id), {qty:newQty});
+    await addDoc(txCol, {
+      productId:p.id, sku:p.sku||'', name:p.name||'', type:currentMoveType, qty,
+      balance:newQty, note:document.getElementById('moveNote').value.trim(),
+      date:new Date().toISOString()
+    });
+    document.getElementById('moveQty').value=1; document.getElementById('moveNote').value='';
+    document.getElementById('moveHint').textContent = 'บันทึกแล้ว — คงเหลือ '+(p.sku||'')+': '+fmt(newQty)+' '+(p.unit||'');
+    if(newQty <= Number(p.min||0)) await notifyLow({...p, qty:newQty});
+  }catch(err){ alert('บันทึกไม่สำเร็จ: '+err.message); }
+  btn.disabled = false;
+}
+
+function renderLedger(){
+  const body = document.getElementById('ledgerBody');
+  if(tx.length===0){ body.innerHTML=''; document.getElementById('ledgerEmpty').style.display='block'; return; }
+  document.getElementById('ledgerEmpty').style.display='none';
+  body.innerHTML = tx.map(t=>`
+    <tr>
+      <td class="mono">${new Date(t.date).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'})}</td>
+      <td>${t.sku||''} — ${t.name||''}</td>
+      <td><span class="pill ${t.type}">${t.type==='in'?'รับเข้า':'เบิกออก'}</span></td>
+      <td class="mono">${t.type==='in'?'+':'-'}${fmt(t.qty)}</td>
+      <td class="mono">${fmt(t.balance)}</td>
+      <td>${t.note||'-'}</td>
+    </tr>`).join('');
+}
+window.exportCSV = function(){
+  let csv = 'วันที่,รหัส,ชื่อสินค้า,ประเภท,จำนวน,คงเหลือ,หมายเหตุ\n';
+  tx.forEach(t=>{ csv += `${t.date},${t.sku},"${t.name}",${t.type},${t.qty},${t.balance},"${t.note||''}"\n`; });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'stock_ledger.csv'; a.click();
+}
+
+window.loadSettingsUI = function(){
+  document.getElementById('defaultMin').value = settings.defaultMin;
+  document.getElementById('webhookUrl').value = settings.webhookUrl;
+}
+window.saveSettings = function(){
+  settings.defaultMin = Number(document.getElementById('defaultMin').value)||0;
+  settings.webhookUrl = document.getElementById('webhookUrl').value.trim();
+  saveSettingsLocal();
+  alert('บันทึกการตั้งค่าแล้ว (เก็บเฉพาะเครื่องนี้)');
+}
+async function notifyLow(p){
+  if(!settings.webhookUrl) return;
+  try{
+    await fetch(settings.webhookUrl, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({event:'low_stock', sku:p.sku, name:p.name, qty:p.qty, min:p.min, time:new Date().toISOString()})
+    });
+  }catch(err){ console.warn('แจ้งเตือนไม่สำเร็จ (ตรวจสอบ webhook/CORS):', err); }
+}
+window.testWebhook = async function(){
+  const url = document.getElementById('webhookUrl').value.trim();
+  if(!url){ alert('กรอก webhook URL ก่อน'); return; }
+  try{
+    await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({event:'test', message:'ทดสอบการแจ้งเตือนจากระบบสต็อก', time:new Date().toISOString()})});
+    alert('ส่งคำขอทดสอบแล้ว — ตรวจสอบผลที่ปลายทาง (n8n/Apps Script/LINE)');
+  }catch(err){ alert('ส่งไม่สำเร็จ: '+err.message); }
+}
+
+document.getElementById('searchBox').addEventListener('input', renderProducts);
+document.getElementById('filterLow').addEventListener('change', renderProducts);
+
+function tickClock(){ document.getElementById('clock').textContent = new Date().toLocaleString('th-TH',{dateStyle:'long',timeStyle:'medium'}); }
+setInterval(tickClock,1000); tickClock();
+
+function renderAll(){ renderStats(); renderProducts(); }
+</script>
+</body>
+</html>
