@@ -172,6 +172,7 @@ tr:hover td{background:rgba(242,183,5,.04);}
     <button class="tab active" data-tab="products">รายการสินค้า</button>
     <button class="tab" data-tab="move">รับเข้า / เบิกออก</button>
     <button class="tab" data-tab="ledger">ประวัติรายการ</button>
+    <button class="tab" data-tab="orders">คำสั่งซื้อ (ร้านค้า)</button>
     <button class="tab" data-tab="settings">ตั้งค่า &amp; แจ้งเตือน</button>
   </div>
 
@@ -223,6 +224,22 @@ tr:hover td{background:rgba(242,183,5,.04);}
     <div class="empty" id="ledgerEmpty" style="display:none;">ยังไม่มีรายการเคลื่อนไหว</div>
   </div>
 
+  <div class="panel" id="panel-orders">
+    <div class="row">
+      <select id="orderStatusFilter">
+        <option value="all">ทุกสถานะ</option>
+        <option value="pending">รอดำเนินการ</option>
+        <option value="confirmed">ยืนยันแล้ว</option>
+        <option value="shipped">จัดส่งแล้ว</option>
+        <option value="completed">สำเร็จ</option>
+        <option value="cancelled">ยกเลิก</option>
+      </select>
+    </div>
+    <div id="ordersList"></div>
+    <div class="empty" id="ordersEmpty" style="display:none;">ยังไม่มีคำสั่งซื้อจากหน้าร้าน</div>
+    <div class="hint">คำสั่งซื้อจากหน้าร้านลูกค้า (shop.html) จะเข้ามาที่นี่แบบเรียลไทม์ กด "ยืนยัน/จัดส่ง/สำเร็จ" เพื่ออัปเดตสถานะให้ลูกค้าเห็น หรือ "ยกเลิก" เพื่อคืนสต็อกอัตโนมัติ</div>
+  </div>
+
   <div class="panel" id="panel-settings">
     <div style="max-width:520px;">
       <div class="field">
@@ -259,6 +276,12 @@ tr:hover td{background:rgba(242,183,5,.04);}
     <div class="row" style="gap:8px;">
       <div class="field" style="flex:1"><label>จำนวนคงเหลือ</label><input type="number" id="pQty" min="0"></div>
       <div class="field" style="flex:1"><label>สต็อกขั้นต่ำ</label><input type="number" id="pMin" min="0"></div>
+    </div>
+    <div class="row" style="gap:8px;">
+      <div class="field" style="flex:1"><label>ราคาขาย (บาท)</label><input type="number" id="pPrice" min="0" step="0.01"></div>
+      <div class="field" style="flex:1"><label>วางขายหน้าร้าน (shop.html)</label>
+        <select id="pListed"><option value="yes">แสดง</option><option value="no">ซ่อน</option></select>
+      </div>
     </div>
     <div class="field"><label>ที่จัดเก็บ (ชั้น/ชั้นวาง)</label><input id="pLocation"></div>
     <div class="actions">
@@ -299,13 +322,19 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const productsCol = collection(db, 'stock_products');
 const txCol = collection(db, 'stock_tx');
+const ordersCol = collection(db, 'stock_orders');
 
 const SET_KEY = 'stock_settings_v1';
 let settings = JSON.parse(localStorage.getItem(SET_KEY) || 'null') || {defaultMin:5, webhookUrl:''};
 let products = [];
 let tx = [];
+let orders = [];
 let currentMoveType = 'in';
 let seeded = false;
+
+const STATUS_LABEL = {pending:'รอดำเนินการ', confirmed:'ยืนยันแล้ว', shipped:'จัดส่งแล้ว', completed:'สำเร็จ', cancelled:'ยกเลิก'};
+const STATUS_NEXT = {pending:'confirmed', confirmed:'shipped', shipped:'completed'};
+const STATUS_NEXT_LABEL = {pending:'ยืนยันคำสั่งซื้อ', confirmed:'จัดส่งแล้ว', shipped:'จบงาน (สำเร็จ)'};
 
 function fmt(n){ return Number(n).toLocaleString('th-TH'); }
 function saveSettingsLocal(){ localStorage.setItem(SET_KEY, JSON.stringify(settings)); }
@@ -330,6 +359,12 @@ onSnapshot(txQuery, (snap)=>{
   renderLedger();
 }, (err)=>{ console.warn('tx listen error', err); });
 
+const ordersQuery = query(ordersCol, orderBy('createdAt','desc'), limit(300));
+onSnapshot(ordersQuery, (snap)=>{
+  orders = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  if(document.getElementById('panel-orders').classList.contains('active')) renderOrders();
+}, (err)=>{ console.warn('orders listen error', err); });
+
 // ---- Tabs ----
 document.querySelectorAll('.tab').forEach(t=>{
   t.onclick = ()=>{
@@ -339,6 +374,7 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.getElementById('panel-'+t.dataset.tab).classList.add('active');
     if(t.dataset.tab==='move') renderMoveSelect();
     if(t.dataset.tab==='ledger') renderLedger();
+    if(t.dataset.tab==='orders') renderOrders();
     if(t.dataset.tab==='settings') loadSettingsUI();
   };
 });
@@ -383,7 +419,7 @@ function renderProducts(){
         <span class="qty">${fmt(p.qty||0)} <span class="unit">${p.unit||''}</span></span>
         <span class="min">ขั้นต่ำ ${fmt(p.min||0)}</span>
       </div>
-      <div class="sub" style="font-size:11px;">${p.location||'ไม่ระบุที่เก็บ'}</div>
+      <div class="sub" style="font-size:11px;">${p.location||'ไม่ระบุที่เก็บ'} ${p.price?(' · ฿'+fmt(p.price)):''} ${p.listed===false?' · <span style="color:var(--paper-dim)">ซ่อนจากร้าน</span>':''}</div>
       <div class="actions">
         <button class="btn small ghost" onclick="openProductModal('${p.id}')">แก้ไข</button>
         <button class="btn small ghost" onclick="showQr('${p.id}')">QR</button>
@@ -399,10 +435,10 @@ window.openProductModal = function(id){
     const p = products.find(x=>x.id===id);
     document.getElementById('productModalTitle').textContent = 'แก้ไขสินค้า';
     pSku.value=p.sku||''; pName.value=p.name||''; pCategory.value=p.category||''; pUnit.value=p.unit||'';
-    pQty.value=p.qty||0; pMin.value=p.min||0; pLocation.value=p.location||'';
+    pQty.value=p.qty||0; pMin.value=p.min||0; pLocation.value=p.location||''; pPrice.value=p.price||0; pListed.value=(p.listed===false?'no':'yes');
   } else {
     document.getElementById('productModalTitle').textContent = 'เพิ่มสินค้า';
-    pSku.value=''; pName.value=''; pCategory.value=''; pUnit.value=''; pQty.value=0; pMin.value=settings.defaultMin; pLocation.value='';
+    pSku.value=''; pName.value=''; pCategory.value=''; pUnit.value=''; pQty.value=0; pMin.value=settings.defaultMin; pLocation.value=''; pPrice.value=0; pListed.value='yes';
   }
   document.getElementById('productOverlay').classList.add('active');
 }
@@ -411,7 +447,7 @@ window.closeProductModal = function(){ document.getElementById('productOverlay')
 window.saveProduct = async function(){
   const id = pEditId.value;
   if(!pSku.value.trim() || !pName.value.trim()){ alert('กรุณากรอกรหัสและชื่อสินค้า'); return; }
-  const data = {sku:pSku.value.trim(), name:pName.value.trim(), category:pCategory.value.trim(), unit:pUnit.value.trim(), qty:Number(pQty.value)||0, min:Number(pMin.value)||0, location:pLocation.value.trim()};
+  const data = {sku:pSku.value.trim(), name:pName.value.trim(), category:pCategory.value.trim(), unit:pUnit.value.trim(), qty:Number(pQty.value)||0, min:Number(pMin.value)||0, location:pLocation.value.trim(), price:Number(pPrice.value)||0, listed:pListed.value==='yes'};
   const btn = document.getElementById('saveProductBtn'); btn.disabled = true;
   try{
     if(id){ await updateDoc(doc(db,'stock_products',id), data); }
@@ -490,6 +526,54 @@ window.exportCSV = function(){
   const blob = new Blob([csv], {type:'text/csv'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = 'stock_ledger.csv'; a.click();
+}
+
+function renderOrders(){
+  const filter = document.getElementById('orderStatusFilter').value;
+  const list = document.getElementById('ordersList');
+  let show = orders.filter(o=> filter==='all' || o.status===filter);
+  if(orders.length===0){ list.innerHTML=''; document.getElementById('ordersEmpty').style.display='block'; return; }
+  document.getElementById('ordersEmpty').style.display='none';
+  if(show.length===0){ list.innerHTML='<div class="empty">ไม่มีคำสั่งซื้อในสถานะนี้</div>'; return; }
+  list.innerHTML = show.map(o=>{
+    const itemsTxt = (o.items||[]).map(i=>`${i.name} x${i.qty}`).join(', ');
+    const st = o.status||'pending';
+    const nextAction = STATUS_NEXT[st] ? `<button class="btn small green" onclick="advanceOrder('${o.id}','${STATUS_NEXT[st]}')">${STATUS_NEXT_LABEL[st]}</button>` : '';
+    const cancelAction = (st!=='completed' && st!=='cancelled') ? `<button class="btn small danger" onclick="cancelOrder('${o.id}')">ยกเลิก</button>` : '';
+    return `
+    <div class="bincard" style="clip-path:none; margin-bottom:8px;">
+      <div class="row" style="justify-content:space-between; margin-bottom:6px;">
+        <span class="sku">#${o.id.slice(-6).toUpperCase()} · ${o.createdAt? new Date(o.createdAt).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'}) : ''}</span>
+        <span class="pill ${st==='cancelled'?'out':'in'}">${STATUS_LABEL[st]||st}</span>
+      </div>
+      <div class="name" style="font-size:14px;">${o.customerName||'ไม่ระบุชื่อ'} · ${o.phone||''}</div>
+      <div class="sub" style="font-size:12px; margin:4px 0;">${o.address||''}</div>
+      <div class="sub" style="font-size:12px; margin-bottom:8px;">${itemsTxt}</div>
+      <div class="qtyline"><span class="qty" style="font-size:16px;">รวม ฿${fmt(o.totalAmount||0)}</span></div>
+      <div class="actions">${nextAction}${cancelAction}</div>
+    </div>`;
+  }).join('');
+}
+document.getElementById('orderStatusFilter').addEventListener('change', renderOrders);
+
+window.advanceOrder = async function(id, nextStatus){
+  try{ await updateDoc(doc(db,'stock_orders',id), {status:nextStatus}); }
+  catch(err){ alert('อัปเดตไม่สำเร็จ: '+err.message); }
+}
+window.cancelOrder = async function(id){
+  if(!confirm('ยืนยันยกเลิกคำสั่งซื้อนี้? ระบบจะคืนสต็อกสินค้ากลับให้อัตโนมัติ')) return;
+  const o = orders.find(x=>x.id===id);
+  try{
+    await updateDoc(doc(db,'stock_orders',id), {status:'cancelled'});
+    for(const item of (o.items||[])){
+      const p = products.find(x=>x.id===item.productId);
+      if(p){
+        const restored = Number(p.qty||0) + Number(item.qty||0);
+        await updateDoc(doc(db,'stock_products',p.id), {qty:restored});
+        await addDoc(txCol, {productId:p.id, sku:p.sku||'', name:p.name||'', type:'in', qty:Number(item.qty||0), balance:restored, note:'คืนสต็อก - ยกเลิกคำสั่งซื้อ #'+id.slice(-6).toUpperCase(), date:new Date().toISOString()});
+      }
+    }
+  }catch(err){ alert('ยกเลิกไม่สำเร็จ: '+err.message); }
 }
 
 window.loadSettingsUI = function(){
